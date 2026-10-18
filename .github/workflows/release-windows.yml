@@ -30,6 +30,8 @@ jobs:
         run: |
           node -e "if(process.env.GITHUB_REF_NAME!=='v'+require('./elite-app/package.json').version||require('./elite-app/release-trust.json').repository!==process.env.GITHUB_REPOSITORY)throw Error('Tag ou destino divergentes')"
       - run: npm ci
+      - name: Preparar Electron fixado no projeto
+        run: node node_modules/electron/install.js
       - run: npm test
       - name: Conferir motor incorporado
         shell: pwsh
