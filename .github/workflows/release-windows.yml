@@ -1,0 +1,59 @@
+name: Publicar ELITEBOTS para Windows
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: elite-release-windows
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: source
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: WandzR/elitebots-optimizer
+          ref: ${{ github.ref_name }}
+          path: source
+          ssh-key: ${{ secrets.ELITE_SOURCE_READ_KEY }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Conferir tag e destino
+        shell: pwsh
+        run: |
+          node -e "if(process.env.GITHUB_REF_NAME!=='v'+require('./elite-app/package.json').version||require('./elite-app/release-trust.json').repository!==process.env.GITHUB_REPOSITORY)throw Error('Tag ou destino divergentes')"
+      - run: npm ci
+      - run: npm test
+      - name: Conferir motor incorporado
+        shell: pwsh
+        run: |
+          $snapshot=(Get-Content engine/current.json -Raw | ConvertFrom-Json).snapshot
+          foreach($test in @('Jotah.Engine.Tests.ps1','Jotah.NativeRegistration.Tests.ps1','Jotah.NativeStoreRestore.Tests.ps1')){
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "engine/$snapshot/tests/$test"
+            if($LASTEXITCODE -ne 0){throw "Falha no motor: $test"}
+          }
+      - run: node tools/build-elite-installer.cjs
+      - name: Conferir executável empacotado
+        shell: pwsh
+        run: |
+          $version=(Get-Content elite-app/package.json -Raw | ConvertFrom-Json).version
+          $exe=Join-Path $PWD "dist-elite/$version/win-unpacked/ELITEBOTS Optimizer.exe"
+          $result=Join-Path $PWD 'package-check.json'
+          $p=Start-Process -FilePath $exe -ArgumentList @('--elite-package-check','--elite-package-check-output',('"'+$result+'"')) -WindowStyle Hidden -PassThru -Wait
+          if($p.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $result)){throw 'Pacote inválido'}
+          Get-Content $result
+      - name: Assinar release
+        env:
+          ELITE_RELEASE_PRIVATE_KEY: ${{ secrets.ELITE_RELEASE_PRIVATE_KEY }}
+        run: node tools/sign-elite-release.cjs
+      - name: Publicar instalador e feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/publish-elite-release.cjs
