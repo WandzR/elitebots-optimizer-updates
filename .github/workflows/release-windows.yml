@@ -53,6 +53,9 @@ jobs:
         env:
           ELITE_RELEASE_PRIVATE_KEY: ${{ secrets.ELITE_RELEASE_PRIVATE_KEY }}
         run: node tools/sign-elite-release.cjs
+      - name: Validar atualização silenciosa e tarefa no Windows isolado
+        shell: pwsh
+        run: ./tools/Test-Elite-Installation.ps1
       - name: Publicar instalador e feed
         env:
           GH_TOKEN: ${{ github.token }}
