@@ -35,12 +35,7 @@ jobs:
       - run: npm test
       - name: Conferir motor incorporado
         shell: pwsh
-        run: |
-          $snapshot=(Get-Content engine/current.json -Raw | ConvertFrom-Json).snapshot
-          foreach($test in @('Jotah.Engine.Tests.ps1','Jotah.NativeRegistration.Tests.ps1','Jotah.NativeStoreRestore.Tests.ps1')){
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "engine/$snapshot/tests/$test"
-            if($LASTEXITCODE -ne 0){throw "Falha no motor: $test"}
-          }
+        run: ./tools/Test-Elite-Engine.ps1
       - run: node tools/build-elite-installer.cjs
       - name: Conferir executável empacotado
         shell: pwsh
